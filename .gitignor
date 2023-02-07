@@ -1,8 +1,13 @@
 # Byte-compiled / optimized / DLL files
 
+settings.py
+
 .gitignore
+
 .DS_Store
+
 __pycache__/
+
 *.py[cod]
 *$py.class
 
