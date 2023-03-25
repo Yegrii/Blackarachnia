@@ -1,42 +1,55 @@
 import logging
 
 import youtube_dl
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
-
-from settings import TOKEN
-
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-                    level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 
-# Functions
-def start(update, context):
-    """Welcome message handler"""
-    welcome_message = "Hello, I'm a YouTube video downloader bot. Please send me the link to the video you want to " \
-                      "download."
-    update.message.reply_text(welcome_message)
+def download_video(video_link):
+    """Downloads the video from YouTube.
 
+    Args:
+        video_link: The link to the video.
 
-def download_video(update, context):
-    """Downloads video from YouTube"""
-    message = update.message.text
+    Returns:
+        The path to the downloaded video.
+    """
+
+    # Get the video ID.
+    video_id = youtube_dl.YoutubeDL({}).extract_video_id(video_link)
+
+    # Try to download the video.
     try:
         with youtube_dl.YoutubeDL({}) as ydl:
-            ydl.download([message])
-        update.message.reply_text("Video has been successfully downloaded.")
+            ydl.download([video_id])
+            return ydl.download_dir()
     except:
-        update.message.reply_text("This video can not be downloaded.")
+        return None
 
 
 def main():
-    """Initialize bot"""
-    updater = Updater(TOKEN, use_context=True)
-    dp = updater.dispatcher
-    dp.add_handler(CommandHandler("start", start))
-    dp.add_handler(MessageHandler(Filters.text, download_video))
-    updater.start_polling()
-    updater.idle()
+    """Initialize the bot.
+
+    Args:
+        None
+
+    Returns:
+        None
+    """
+
+    # Get the token from the settings file.
+    token = '1111111111111111111'
+
+    # Create the bot.
+    bot = Updater(token, use_context=True)
+
+    # Add the start command handler.
+    bot.dispatcher.add_handler(CommandHandler('start', start))
+
+    # Add the download video handler.
+    bot.dispatcher.add_handler(MessageHandler(Filters.text, download_video))
+
+    # Start the bot.
+    bot.start_polling()
+    bot.idle()
 
 
 if __name__ == '__main__':
