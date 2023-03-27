@@ -1,96 +1,91 @@
 import os
 import logging
+import shutil
+import pytube
+import telegram
+from settings import TOKEN
 
-from telegram import Update
+from telegram import Update, ChatAction
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
 
-from pytube import YouTube
+# встновлюємо логування
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 
 
-def download_video(video_link: str) -> str:
-    """Downloads the video from YouTube.
-
-    Args:
-        video_link: The link to the video.
-
-    Returns:
-        The path to the downloaded video.
-    """
-
-    # Create a YouTube object with the video link.
-    youtube = YouTube(video_link)
-
-    # Get the highest quality stream for the video.
-    stream = youtube.streams.get_highest_resolution()
-
-    # Download the video to the current working directory.
-    video_path = stream.download()
-
-    return video_path
-
-
+# функція, яка буде викликатися при команді /start
 def start(update: Update, context: CallbackContext) -> None:
-    """Handler for the /start command.
+    # створюємо клавіатуру з однією кнопкою
+    button = [['Будь ласка, надішліть посилання на відео']]
+    reply_markup = telegram.ReplyKeyboardMarkup(button, resize_keyboard=True)
 
-    Args:
-        update: The Telegram update object.
-        context: The Telegram context object.
-
-    Returns:
-        None.
-    """
-
-    context.bot.send_message(chat_id=update.effective_chat.id, text="Hello! Send me a YouTube link to download a video.")
+    # відправляємо користувачу повідомлення та показуємо клавіатуру з кнопкою
+    update.message.reply_text('Привіт! Я бот, який допоможе тобі завантажити відео з YouTube =)',
+                              reply_markup=reply_markup)
 
 
-def download_video_handler(update: Update, context: CallbackContext) -> None:
-    """Handler for downloading a video from a YouTube link.
+# функція, яка буде викликатися при отриманні посилання на відео
+def download_video(update: Update, context: CallbackContext) -> None:
+    # відправляємо користувачу повідомлення про те, що починаємо завантажувати відео
+    update.message.reply_text('Залишилось трохи почекати...')
 
-    Args:
-        update: The Telegram update object.
-        context: The Telegram context object.
+    # отримуємо посилання на відео
+    video_url = update.message.text.strip()
 
-    Returns:
-        None.
-    """
-
-    # Get the video link from the user's message.
-    video_link = update.message.text
-
-    # Download the video.
     try:
-        video_path = download_video(video_link)
-        context.bot.send_message(chat_id=update.effective_chat.id, text=f"Video downloaded to {video_path}")
-    except Exception as e:
-        context.bot.send_message(chat_id=update.effective_chat.id, text=f"Error downloading video: {e}")
+        # створюємо екземпляр YouTube
+        youtube = pytube.YouTube(video_url)
+
+        # отримуємо потік з найвищим розширенням
+        stream = youtube.streams.get_highest_resolution()
+
+        # завантажуємо відео
+        stream.download()
+
+        # переміщуємо відео в папку 'video'
+        video_filename = stream.default_filename
+        video_path = os.path.join(os.getcwd(), video_filename)
+        new_video_path = os.path.join(os.getcwd(), 'video', video_filename)
+        shutil.move(video_path, new_video_path)
+
+        # відправляємо користувачу повідомлення про те, що відео успішно завантажено
+        update.message.reply_text("Вітаю! Відео успішно завантажено!")
+
+    except pytube.exceptions.PytubeError as e:
+        # відправляємо користувачу повідомлення про те, що виникла помилка при завантаженні відео
+        update.message.reply_text(f'Виникла помилка при завантаженні відео: {e}')
+
+
+# функція, яка буде викликатися при отриманні будь-якого повідомлення
+def echo(update: Update, context: CallbackContext) -> None:
+    # створюємо клавіатуру з однією кнопкою
+    button = [['Будь ласка, надішліть посилання на відео']]
+    reply_markup = telegram.ReplyKeyboardMarkup(button, resize_keyboard=True)
+
+    # відправляємо користувачу повідомлення та показуємо клавіатуру з кнопкою
+    update.message.reply_text('Вибач, але я не знаю що тобі на це відповісти =(', reply_markup=reply_markup)
 
 
 def main() -> None:
-    """Initialize the bot.
+    # створюємо екземпляр Updater
+    updater = Updater(TOKEN)
 
-    Args:
-        None.
+    # отримуємо диспетчер бота
+    dispatcher = updater.dispatcher
 
-    Returns:
-        None.
-    """
+    # регіструємо обробник команди /start
+    dispatcher.add_handler(CommandHandler('start', start))
 
-    # Get the token from the settings file.
-    with open('settings.py', 'r') as f:
-        token = f.read().strip().split('=')[1].strip().strip("'")
+    # регіструємо обробник посилання на відео
+    dispatcher.add_handler(MessageHandler(Filters.regex(r'^https://www.youtube.com/watch\?v='), download_video))
 
-    # Create the bot.
-    bot = Updater(token, use_context=True)
+    # регіструємо обробник будь-якого повідомлення
+    dispatcher.add_handler(MessageHandler(Filters.text, echo))
 
-    # Add the start command handler.
-    bot.dispatcher.add_handler(CommandHandler('start', start))
+    # запускаємо бота
+    updater.start_polling()
 
-    # Add the download video handler.
-    bot.dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, download_video_handler))
-
-    # Start the bot.
-    bot.start_polling()
-    bot.idle()
+    # зупиняємо бота, коли натиснуто Ctrl + C
+    updater.idle()
 
 
 if __name__ == '__main__':
