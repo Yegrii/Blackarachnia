@@ -1,16 +1,15 @@
 import logging
-
 import youtube_dl
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
-
 from settings import TOKEN
+
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-# Functions
+# Функція, яка викликається при команді /start
 def start(update, context):
     """Welcome message handler"""
     welcome_message = "Hello, I'm a YouTube video downloader bot. Please send me the link to the video you want to " \
@@ -19,7 +18,7 @@ def start(update, context):
 
 
 def download_video(update, context):
-    """Downloads video from YouTube"""
+    # Відправляємо повідомлення про те, що відео завантажується
     message = update.message.text
     try:
         with youtube_dl.YoutubeDL({}) as ydl:
@@ -30,7 +29,7 @@ def download_video(update, context):
 
 
 def main():
-    """Initialize bot"""
+    # Підключаємося до бота
     updater = Updater(TOKEN, use_context=True)
     dp = updater.dispatcher
     dp.add_handler(CommandHandler("start", start))
